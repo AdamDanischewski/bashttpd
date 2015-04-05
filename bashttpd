@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-###                          bashttpd v 1.0 
+###                          bashttpd v 1.1 
 ###
 ### Original author: Avleen Vig,       2012
 ### Reworked by:     Josh Cartwright,  2012
@@ -280,6 +280,7 @@ function unconditionally() { "$@" "$REQUEST_URI"; }
 function main() { 
   local recv="" 
   local line="" 
+  chk_conf_file
   [[ ${UID} = 0 ]] && warn "It is not recommended to run bashttpd as root."
    # Request-Line HTTP RFC 2616 $5.1
   read -r line || fail_with 400
