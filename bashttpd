@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-###                          bashttpd v 1.4
+###                          bashttpd v 1.5
 ###
 ### Original author: Avleen Vig,       2012
 ### Reworked by:     Josh Cartwright,  2012
@@ -55,7 +55,7 @@ declare -r BASHTTPD_CONF="${REMEDY_DEV}/configuration_files/bashttpd/bashttpd.co
 declare -i LISTEN_PORT=8080  
 
 declare -i DEBUG=0 
-declare -i VERBOSE=0 
+declare -i VERBOSE=1
 declare -a REQUEST_HEADERS
 declare    REQUEST_URI="" 
 declare -a HTTP_RESPONSE=(
@@ -144,7 +144,7 @@ function chk_conf_file() {
 #   paths relative to the specified "$DOCROOT"
 #
 
-unconditionally serve_static_string 'Hello, world!  You can configure bashttpd by modifying bashttpd.conf.'
+#unconditionally serve_static_string 'Hello, world!  You can configure bashttpd by modifying bashttpd.conf.'
 DOCROOT=/
 on_uri_match '/(.*)' serve_dir_or_file_from 
 
@@ -182,14 +182,21 @@ function add_response_header() { RESPONSE_HEADERS+=("$1: $2"); }
 function send_response_binary() {
   local code="$1"
   local file="${2}" 
+  local transfer_stats="" 
+  local tmp_stat_file="/tmp/_send_response_$$_"
   send "HTTP/1.0 $1 ${HTTP_RESPONSE[$1]}"
   for i in "${RESPONSE_HEADERS[@]}"; do
      send "$i"
   done
   send
   ## Use dd since it handles null bytes, looping w/IFS= breaks on null bytes in 
-  ## binary files.
- dd < "${file}"
+  ## binary files. 
+ dd 2>"${tmp_stat_file}" < "${file}" 
+ transfer_stats=$(<"${tmp_stat_file}") 
+ if ((${VERBOSE})); then 
+  echo -en ">> Transferred: ${file}\n>> $(awk '/copied/{print}' <<< "${transfer_stats}")\n" >&2  
+ fi 
+ rm "${tmp_stat_file}"
 }   
 
 function send_response() {
@@ -234,7 +241,8 @@ function serve_file() {
   add_response_header "Content-Type"  "${CONTENT_TYPE}"
   CONTENT_LENGTH=$(stat -c'%s' "${file}") 
   add_response_header "Content-Length" "${CONTENT_LENGTH}"
-    ## Use the binary safe transfer in case it is binary, since text doesn't get broken by it. 
+    ## Use the binary safe transfer method in case it is binary, 
+    ## since text doesn't get broken by it. 
   send_response_ok_exit_binary "${file}"
 }
 
@@ -330,7 +338,7 @@ function main() {
 } 
 
 if [[ ! -z "{$1}" ]] && [ "${1}" = "-s" ]; then 
- socat TCP4-LISTEN:${LISTEN_PORT},fork,raw,echo=0,iexten=0 EXEC:"${0}" 
+ socat TCP4-LISTEN:${LISTEN_PORT},fork EXEC:"${0}" 
 else 
  main 
  source "${BASHTTPD_CONF}" 
