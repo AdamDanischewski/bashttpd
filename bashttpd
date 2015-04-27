@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-###                          bashttpd v 1.5
+###                          bashttpd v 1.6
 ###
 ### Original author: Avleen Vig,       2012
 ### Reworked by:     Josh Cartwright,  2012
@@ -55,7 +55,7 @@ declare -r BASHTTPD_CONF="${REMEDY_DEV}/configuration_files/bashttpd/bashttpd.co
 declare -i LISTEN_PORT=8080  
 
 declare -i DEBUG=0 
-declare -i VERBOSE=1
+declare -i VERBOSE=0
 declare -a REQUEST_HEADERS
 declare    REQUEST_URI="" 
 declare -a HTTP_RESPONSE=(
@@ -169,7 +169,7 @@ on_uri_match '/(.*)' serve_dir_or_file_from
 # (${BASH_REMATCH[0]} is always the full match)
 EOF
    warn "Created bashttpd.conf using defaults.  Please review and configure bashttpd.conf before running bashttpd again."
-   exit 1
+#  exit 1
 } 
 }
 
@@ -189,8 +189,8 @@ function send_response_binary() {
      send "$i"
   done
   send
-  ## Use dd since it handles null bytes, looping w/IFS= breaks on null bytes in 
-  ## binary files. 
+  ## Use dd since it handles null bytes, looping w/IFS= breaks on null    
+  ## bytes in binary files. 
  dd 2>"${tmp_stat_file}" < "${file}" 
  transfer_stats=$(<"${tmp_stat_file}") 
  if ((${VERBOSE})); then 
