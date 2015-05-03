@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-###                          bashttpd v 1.8
+###                          bashttpd v 1.9
 ###
 ### Original author: Avleen Vig,       2012
 ### Reworked by:     Josh Cartwright,  2012
@@ -180,23 +180,26 @@ function send() { ((${VERBOSE})) && echo "> $@" >&2; echo "$*"; }
 function add_response_header() { RESPONSE_HEADERS+=("$1: $2"); }
 
 function send_response_binary() {
-  local code="$1"
-  local file="${2}" 
-  local transfer_stats="" 
-  local tmp_stat_file="/tmp/_send_response_$$_"
-  send "HTTP/1.0 $1 ${HTTP_RESPONSE[$1]}"
-  for i in "${RESPONSE_HEADERS[@]}"; do
-     send "$i"
-  done
-  send
+ local code="$1"
+ local file="${2}" 
+ local transfer_stats="" 
+ local tmp_stat_file="/tmp/_send_response_$$_"
+ send "HTTP/1.0 $1 ${HTTP_RESPONSE[$1]}"
+ for i in "${RESPONSE_HEADERS[@]}"; do
+   send "$i"
+ done
+ send
+ if ((${VERBOSE})); then 
   ## Use dd since it handles null bytes, looping w/IFS= breaks on null    
   ## bytes in binary files. 
- dd 2>"${tmp_stat_file}" < "${file}" 
- transfer_stats=$(<"${tmp_stat_file}") 
- if ((${VERBOSE})); then 
+  dd 2>"${tmp_stat_file}" < "${file}" 
+  transfer_stats=$(<"${tmp_stat_file}") 
   echo -en ">> Transferred: ${file}\n>> $(awk '/copied/{print}' <<< "${transfer_stats}")\n" >&2  
+  rm "${tmp_stat_file}"
+ else 
+   ## If you are on AIX, Solaris,etc this will probably break, change it to /dev/null if you have to. 
+  dd 2>/dev/random < "${file}"   
  fi 
- rm "${tmp_stat_file}"
 }   
 
 function send_response() {
@@ -215,14 +218,11 @@ function send_response_ok_exit() { send_response 200; exit 0; }
 
 function send_response_ok_exit_binary() { send_response_binary 200  "${1}"; exit 0; }
 
-function fail_with() {
-  send_response "$1" <<< "$1 ${HTTP_RESPONSE[$1]}"
-  exit 1
-}
+function fail_with() { send_response "$1" <<< "$1 ${HTTP_RESPONSE[$1]}"; exit 1; }
 
 function serve_file() {
   local file="$1"
-  local send_file="/tmp/_tmp_file_" 
+  local send_file="/tmp/_tmp_$$_file_" 
   local CONTENT_TYPE=""
   case "${file}" in
     *\.css)
@@ -235,10 +235,6 @@ function serve_file() {
       CONTENT_TYPE=$(file -b --mime-type "${file}")
       ;;
   esac
-  #for each in "${REQUEST_HEADERS[@]}"; do 
-    #echo "send() REQUEST_HEADERS: $each" >> /tmp/url.txt
-  #done 
-  #echo "CONTENT_TYPE in serve_file is ${CONTENT_TYPE}" >> /tmp/url.txt
   add_response_header "Content-Type"  "${CONTENT_TYPE}"
   CONTENT_LENGTH=$(stat -c'%s' "${file}") 
   add_response_header "Content-Length" "${CONTENT_LENGTH}"
@@ -276,21 +272,7 @@ function serve_dir() {
   fail_with 500
 }
 
-function urldecode() { 
-local url="${1}" 
-local char="${url}" 
-local conv_char="" 
-while :; do 
- char=$(sed 's/\(^[^%]*\)\(\%[[:xdigit:]]\{2\}\)\(.*$\)/\2/' <<< "${url}") 
- [ "${char}" = "${url}" ] && break  
- conv_char=$(printf "\\$(echo "obase=8; ibase=16; $(sed 's/%//' <<< "${char}")" | bc)") 
- url=$(sed "s|${char}|${conv_char}|" <<< "${url}")   ## Hope theres no pipes in urls, change this if so.
- char="" 
-done 
-url="${url%/}" 
-url=${url:-"/"}
-echo "${url}" 
-} 
+function urldecode() { [ "${1%/}" = "" ] && echo "/" ||  echo -e "$(sed 's/%\([[:xdigit:]]\{2\}\)/\\\x\1/g' <<< "${1%/}")"; } 
 
 function serve_dir_or_file_from() {
   local URL_PATH="${1}/${3}"
