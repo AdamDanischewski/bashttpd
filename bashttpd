@@ -2,24 +2,50 @@
 
 #############################################################################
 ###########################################################################
-###                          bashttpd v 1.11
+###                          bashttpd v 1.12
 ###
 ### Original author: Avleen Vig,       2012
 ### Reworked by:     Josh Cartwright,  2012
 ### Modified by:     A.M.Danischewski, 2015 
-### Issues: If you find any issues emai1 me at my <first name> dot 
-###         <my last name> at gmail dot com.  
+### Issues: If you find any issues leave me a comment at 
+### http://scriptsandoneliners.blogspot.com/2015/04/bashttpd-self-contained-bash-webserver.html 
 ### 
-### This program requires (to work to full capacity) by default: 
+### This is a simple Bash based webserver. By default it will browse files and allows for 
+### retrieving binary files. 
+### 
+### It has been tested successfully to view and stream files including images, mp3s, 
+### mp4s and downloading files of any type including binary and compressed files via  
+### any web browser. 
+### 
+### Successfully tested on various browsers on Windows, Linux and Android devices (including the 
+### Android Smartwatch ZGPAX S8).  
+### 
+### It handles favicon requests by hardcoded favicon image -- by default a marathon 
+### runner; change it to whatever you want! By base64 encoding your favorit favicon 
+### and changing the global variable below this header.  
+### 
+### Make sure if you have a firewall it allows connections to the port you plan to 
+### listen on (8080 by default).  
+### 
+### By default this program will allow for the browsing of files from the 
+### computer where it is run.  
+###  
+### Make sure you are allowed connections to the port you plan to listen on 
+### (8080 by default). Then just drop it on a host machine (that has bash) 
+### and start it up like this:
+###      
+### $192.168.1.101> bashttpd -s
+###      
+### On the remote machine you should be able to browse and download files from the host 
+### server via any web browser by visiting:
+###      
+### http://192.168.1.101:8080 
+###  
+#### This program requires (to work to full capacity) by default: 
 ### socat or netcat (w/ '-e' option - on Ubuntu netcat-traditional)
 ### tree - useful for pretty directory listings 
-### 
-### This is a simple Bash based webserver. Run it once to create a  
-### bashhttpd.conf. Configure bashttpd.conf and then run again to  
-### to wait for connections (make sure if have a firewall it allows 
-### connections to the port you plan to listen on).  
-###
 ### If you are using socat, you can type: bashttpd -s  
+### 
 ### to start listening on the LISTEN_PORT (default is 8080), you can change 
 ### the port below.  
 ###  E.g.    nc -lp 8080 -e ./bashttpd ## <-- If your nc has the -e option.   
@@ -57,9 +83,12 @@ declare -i LISTEN_PORT=8080
  ## If you are on AIX, IRIX, Solaris, or a hardened system redirecting 
  ## to /dev/random will probably break, you can change it to /dev/null.  
 declare -a DUMP_DEV="/dev/random" 
+  
+ ## Just base64 encode your favorite favicon and change this to whatever you want.    
+declare -r FAVICON="AAABAAEAEBAAAAEAIABoBAAAFgAAACgAAAAQAAAAIAAAAAEAIAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAADg4+3/srjc/5KV2P+ortn/xMrj/6Ch1P+Vl9f/jIzc/3572f+CgNr/fnzP/3l01f+Ih9r/h4TZ/8fN4//P1Oj/3uPr/7O+1v+xu9X/u8XY/9bi6v+UmdD/XV26/3F1x/+GitT/VVXC/3x/x/+HjNT/lp3Z/6633f/E0eD/2ePr/+bt8v/U4+v/0uLp/9Xj6//Z5e3/oKbX/0pJt/9maML/cHLF/3p8x//T3+n/3Ofu/9vo7//W5Oz/0uHq/9zn7f/j6vD/1OLs/8/f6P/R4Oj/1OPr/7jA4f9KSbf/Skm3/3p/yf/U4ez/1ePq/9rn7//Z5e3/0uHp/87e5//a5Ov/5Ovw/9Hf6v/T4uv/1OLp/9bj6/+kq9r/Skq3/0pJt/+cotb/zdnp/9jl7f/a5u//1+Ts/9Pi6v/O3ub/2uXr/+bt8P/Q3un/0eDq/9bj7P/Z5u7/r7jd/0tKt/9NTLf/S0u2/8zW6v/c5+//2+fv/9bj6//S4un/zt3m/9zm7P/k7PD/1OPr/9Li7P/V5Oz/2OXt/9jl7v+HjM3/lZvT/0tKt/+6w+L/2ebu/9fk7P/V4+v/0uHq/83d5v/a5ev/5ezw/9Pi6v/U4+z/1eXs/9bj6//b5+//vsjj/1hYvP9JSLb/horM/9nk7P/X5e3/1eTs/9Pi6v/P3uf/2eXr/+Tr7//O3+n/0uLr/9Xk7P/Y5e3/w8/k/7XA3/9JR7f/SEe3/2lrw//G0OX/1uLr/9Xi7P/T4ev/0N/o/9zn7f/k7PD/zN3p/8rd5v/T4ur/1ePt/5We0/+0w9//SEe3/0pKt/9OTrf/p7HZ/7fD3//T4uv/0N/o/9Hg6f/d5+3/5ezw/9Li6//T4uv/2ubu/8PQ5f9+hsr/ucff/4eOzv+Ei8z/rLja/8zc6P/I1+b/0OLq/8/f6P/Q4Oj/3eft/+bs8f/R4On/0+Lq/9Tj6v/T4Ov/wM7h/9Df6f/M2uf/z97q/9Dg6f/Q4On/1OPr/9Tj6//S4ur/0ODp/93o7f/n7vH/0N/o/8/f5//P3+b/2OXt/9zo8P/c6fH/zdjn/7fB3/+3weD/1eLs/9nn7//V5Oz/0+Lr/9Pi6//e6O7/5u3x/9Pi6v/S4en/0uLp/9Tj6//W4+v/3Ojw/9rm7v9vccT/wcvm/9rn7//X5Oz/0uHq/9Hg6f/S4er/3uju/+bt8f/R4On/0uHp/9Xk6//Y5u7/1OTs/9bk7P/W5Ov/XFy9/2lrwf/a5+//1uPr/9Pi6v/U4er/0eHq/93o7v/v8vT/5ezw/+bt8f/o7vL/6e/z/+jv8v/p7/L/6e/y/9XZ6//IzOX/6e7y/+nv8v/o7vL/5+7x/+ft8f/r8PP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==" 
               
 declare -i DEBUG=1 
-declare -i VERBOSE=1
+declare -i VERBOSE=0
 declare -a REQUEST_HEADERS
 declare    REQUEST_URI="" 
 declare -a HTTP_RESPONSE=(
@@ -248,18 +277,16 @@ function serve_dir_with_tree() {
   local dir="$1" tree_vers tree_opts basehref x
     ## HTML 5 compatible way to avoid tree html from generating favicon
     ## requests in certain browsers, such as browsers in android smartwatches. =) 
-  local no_favicon=' <link href="data:image/x-icon;base64,AAABAAEAEBAAAAAAAABoBAAAFgAAACgAAAAQAAAAIAAAAAEAIAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAD9/f0F/Pz8DP///wD///8P////Dv///xL///8P////A////wD///8A/v7+Cf///wX///8A////APv7+wr9/f0D+/v7Dv///wb///81+vv8i/v7/Iv3+PqL4+nxi+ru9JHy9Piu5+zzru3w9ZD+/v5x/v7+H////wr///8A9/f3H/7+/g7///8J////HNDX5Pyaq8j/m6zJ/5esy/+QpcX/larK/5uwzv+MoMH/mqrG/5qlv+7Q0Nty/f3+Af///wD///8A/v7+A////wz+/v6b2d/q/4abvf+Emr7/jKHD/5Gnyf+Uqsz/fpW5/4mXuP/U1OL/e3ui+MPE0l7///8A////AP///wD///8P////Xa680/9/lrr/kafJ/5yy0/+WrM7/nbPT/52uyv+ktM7/1NTi/8LC1f+lpr3n////AP///wD///8A////AP7+/mDo7PL/ytPi/5yv0fehsuXuuMvl0Kq81drS2uf8+/z9bff3+SG5uM1r8vL1ff///wD///8A////AP///wr+/v4H/v7+jufq8umIg/Sut7L9YKul/W7PzvlMnZn03Ozq/x/+/v4H////AP///wD///8A////AP///wD///8A5OH/IpuS/pF3cfPploz/hH5y/6F/dP+gl47/gkw++e7Hwv9Fta//XPj4/gf///8A////AP///wD///8A+vn/BoyB/pGlnf5vfHfxy4mA/JlIOf/lmZD+f1lK/89kWPrPmZD+f9zY/yu3sP5ar6j/ZP///wD///8A6uj/GbSt/l6imv9yVkf/1HBm+MJ5eOrlhX/1s2JY+dRpYPfPv7/zb4+F/41WR//Uloz/hI6E/47///8A////AOro/xmnn/9teW3/qH5y/6HKxf9B9/n7Fc3N9VfMyvlQraj6cbWv/1zj4f4h2tf/Lks7/+NmWP+/0s7/OP///wCvqP9kjoT/jo6E/46Sif+I+vn/Bt3a/ypsX/+5////AH90/6Dj4f4h0Mz/OrWv/1yyq/9gkon/iNzY/yv///8A19P/MvLx/g////8A////APX0/wxvYv6119P/MtzY/ytmWP+/oZj/df///wBQQP/dt7D+Wv///wD///8A////AP///wD///8A////AKyk/2makf9+UUL/283J/z/l4/8f1dH/M////wD///8At7D+Wv39/gH///8A////AP///wD///8A////AP///wDa1/8u2tf/LtrX/y719P8M////AP///wD///8A////AP///wD///8A////AP///wD///8A////AP///wD///8A////AP///wD///8A////AP///wD///8A////AP///wD///8A////AP///wD///8A//8AAOAfAADgBwAA4AMAAPABAADwHwAA8d8AAPAfAADonwAA8CEAAOf5AADGvQAA/bcAAP3/AAD//wAA//8AAA==" rel="icon" type="image/x-icon" />' 
+  local no_favicon=" <link href=\"data:image/x-icon;base64,${FAVICON}\" rel=\"icon\" type=\"image/x-icon\" />"  
   local tree_page="" 
   local base_server_path="/${2%/}"
   [ "$base_server_path" = "/" ] && base_server_path=".." 
   local tree_opts="--du -h -a --dirsfirst" 
   add_response_header "Content-Type" "text/html"
-  ((${VERBOSE})) && echo "base_server_path: $base_server_path" >> /tmp/test.txt 
    # The --du option was added in 1.6.0.   "/${2%/*}"
   read _ tree_vers x < <(tree --version)
   tree_page=$(tree -H "$base_server_path" -L 1 "${tree_opts}" -D "${dir}")
   tree_page=$(sed "5 i ${no_favicon}" <<< "${tree_page}")  
-  echo "$tree_page" > /tmp/yo.txt
   [[ "${tree_vers}" == v1.6* ]] 
   send_response_ok_exit <<< "${tree_page}"  
 }
