@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-###                          bashttpd v 1.16
+###                          bashttpd v 1.17
 ###
 ### Original author: Avleen Vig,       2012
 ### Reworked by:     Josh Cartwright,  2012
@@ -56,6 +56,10 @@
 ### url (e.g. from notepad) and then paste it into an empty playlist in vlc        
 ### e.g. C-x-C-c http://192.168.1.101:8080/tmp/lnk.mp4  
 ###  
+### Note: This does not work for Windows media player under its default configuration  
+###       because wmp caches the files locally and does not refetch automatically. 
+###       If you find a workaround, contact me at scriptsandoneliners.blogspot.com.   
+###  
 #### This program requires (to work to full capacity) by default: 
 ### socat or netcat (w/ '-e' option - on Ubuntu netcat-traditional)
 ### tree - useful for pretty directory listings 
@@ -99,7 +103,7 @@ declare -r BASHTTPD_CONF="/tmp/bashttpd.conf"
   ### the content automagically).    
 declare -r MEDIA_DAEMON="/tmp/m_play.bsh"
 declare -r M_ALIASES="/tmp/m_player.aliases"
-declare -r M_LNK="/tmp/lnk2.mp4"
+declare -r M_LNK="/tmp/lnk.mp4"  ## The mp4 extension works in vlc for both mp3/mp4 files.    
 declare -r M_DIR=""               ## Default dir for media in playlist 
                                   ## w/out abs paths (defaults to pwd).   
 declare -r M_PLAYLIST="/tmp/_mpl.txt" 
@@ -255,7 +259,7 @@ cat <<EOF > "${MEDIA_DAEMON}"
 declare -r m_lnk="${M_LNK}"
 declare -r m_dir="${M_DIR:-$(pwd)}" 
 declare -r m_playlist="${M_PLAYLIST}" 
- ## Sleep in case streams aren't being pulled, should be not shorter than your media. 
+ ## Sleep in case streams aren't being pulled, should be shorter than your shortest media. 
 declare -i m_sleep=${M_SLEEP} 
 while :; do 
 if [[ -f "\${m_playlist}" ]]; then  
