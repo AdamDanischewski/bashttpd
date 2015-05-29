@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-###                          bashttpd v 1.15
+###                          bashttpd v 1.16
 ###
 ### Original author: Avleen Vig,       2012
 ### Reworked by:     Josh Cartwright,  2012
@@ -54,7 +54,7 @@
 ###  
 ### On the remote machine you should be able to use vlc to play the media, copy the   
 ### url (e.g. from notepad) and then paste it into an empty playlist in vlc        
-### e.g. C-x-C-c http://192.168.1.101:8080/tmp/lnk.mp3  
+### e.g. C-x-C-c http://192.168.1.101:8080/tmp/lnk.mp4  
 ###  
 #### This program requires (to work to full capacity) by default: 
 ### socat or netcat (w/ '-e' option - on Ubuntu netcat-traditional)
@@ -100,7 +100,8 @@ declare -r BASHTTPD_CONF="/tmp/bashttpd.conf"
 declare -r MEDIA_DAEMON="/tmp/m_play.bsh"
 declare -r M_ALIASES="/tmp/m_player.aliases"
 declare -r M_LNK="/tmp/lnk2.mp4"
-declare -r M_DIR="" ## Default dir for media in playlist w/out abs paths (defaults to pwd)  
+declare -r M_DIR=""               ## Default dir for media in playlist 
+                                  ## w/out abs paths (defaults to pwd).   
 declare -r M_PLAYLIST="/tmp/_mpl.txt" 
 declare -i M_SLEEP=120 
 declare -r M_PID="/tmp/_mpl_pid_" 
@@ -414,11 +415,13 @@ function gen_playlist_aliases() {
  [[ -f "${M_ALIASES}" ]] && rm -f "${M_ALIASES}" 
  echo "alias add2mpl='_() { song_l=\"\${#1}\"; np_song_l=\"\${1##*/}\"; [[ ! \${#np_song_l} -lt \${song_l} ]] && song=\"\$(pwd)/\${1}\" || song=\"\${1}\"; echo \"\${song}\" >> \"${M_PLAYLIST}\"; }; _'" >> "${M_ALIASES}" 
  echo "alias rmmpl='rm \"${M_PLAYLIST}\"'" >> "${M_ALIASES}"
+ echo "alias lsmpl='cat \"${M_PLAYLIST}\"'" >> "${M_ALIASES}"
  echo "alias 102mpl='_() { IFS=\$(echo -en \"\n\b\") && for a in \$(ls -f1 *\"\${1}\" | shuf | tail -10); do add2mpl \"\${a}\"; done; }; _'" >> "${M_ALIASES}"
  echo "alias rempl='rmmpl; 102mpl'" >> "${M_ALIASES}"
  echo "echo -e \"\\nThe following aliases allow for tracks to be added and removed from the playlist: \\n\"" >> "${M_ALIASES}"
  echo "echo \"     alias add2mpl: Adds a new media track to the current playlist\""  >> "${M_ALIASES}"
  echo "echo \"       alias rmmpl: Deletes the current playlist\""  >> "${M_ALIASES}"
+ echo "echo \"       alias lsmpl: Lists the current playlist\""  >> "${M_ALIASES}"
  echo "echo -e \"       alias rempl: Recreates the current playlist with 10 random tracks, you may provide \\n                    an optional filter arg.\""  >> "${M_ALIASES}"
  echo "echo -e \"      alias 102mpl: Adds 10 random tracks from the current directory to the current playlist.\""  >> "${M_ALIASES}"
  echo "echo \"      Optionally you may provide a filter argument (mp4,avi,mp3  etc), e.g. $ 102mpl mp3  -- adds \""  >> "${M_ALIASES}"
