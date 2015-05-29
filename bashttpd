@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-###                          bashttpd v 1.13
+###                          bashttpd v 1.15
 ###
 ### Original author: Avleen Vig,       2012
 ### Reworked by:     Josh Cartwright,  2012
@@ -40,6 +40,21 @@
 ### server via any web browser by visiting:
 ###      
 ### http://192.168.1.101:8080 
+###      
+### This program will generate a micro media server, if you start it with the -m option 
+###      
+### $192.168.1.101> bashttpd -s -m 
+###      
+### Afterward source the alias file:  source /tmp/m_player.aliases
+### Create a playlist: cd /fav/mp3/collection; 102mpl mp3
+### Adds 10 mp3 files are added to the playlist.  
+### 
+### You should be able to loop stream the content on vlc by opening the url (mrl)  
+### and hitting repeat song loop, each time it loops a the next track will be served.  
+###  
+### On the remote machine you should be able to use vlc to play the media, copy the   
+### url (e.g. from notepad) and then paste it into an empty playlist in vlc        
+### e.g. C-x-C-c http://192.168.1.101:8080/tmp/lnk.mp3  
 ###  
 #### This program requires (to work to full capacity) by default: 
 ### socat or netcat (w/ '-e' option - on Ubuntu netcat-traditional)
@@ -76,6 +91,32 @@
 
   ### CHANGE THIS TO WHERE YOU WANT THE CONFIGURATION FILE TO RESIDE 
 declare -r BASHTTPD_CONF="/tmp/bashttpd.conf"
+
+  ### CHANGE THIS TO WHERE YOU WANT THE MEDIA DAEMON TO RESIDE
+  ### This is optional, only if you want to broadcast a media collection 
+  ### to e.g. vlc or any other streaming media player, simply add the media 
+  ### file and put your player on loop (the same track, yet it will change the 
+  ### the content automagically).    
+declare -r MEDIA_DAEMON="/tmp/m_play.bsh"
+declare -r M_ALIASES="/tmp/m_player.aliases"
+declare -r M_LNK="/tmp/lnk2.mp4"
+declare -r M_DIR="" ## Default dir for media in playlist w/out abs paths (defaults to pwd)  
+declare -r M_PLAYLIST="/tmp/_mpl.txt" 
+declare -i M_SLEEP=120 
+declare -r M_PID="/tmp/_mpl_pid_" 
+
+function exit_gracefully() { 
+ if [[ -f "${M_PID}_$$" ]]; then  
+  IFS=$(echo -en "\n\b") && for a in $(< "${M_PID}_$$"); do 
+    echo "Killing media server with pid $a"; 
+    ps -ef | grep -i "${MEDIA_DAEMON}" | grep "$a" | awk "{print $2}" | xargs -I {} kill -9 {}; 
+  done 
+  rm "${M_PID}_$$" 
+ fi 
+ rm -f "${MEDIA_DAEMON}" 
+ exit 0 
+}
+trap "{ exit_gracefully; }" EXIT SIGINT SIGHUP SIGQUIT SIGTERM 
 
   ### CHANGE THIS IF YOU WOULD LIKE TO LISTEN ON A DIFFERENT PORT 
 declare -i LISTEN_PORT=8080  
@@ -206,6 +247,34 @@ EOF
 } 
 }
 
+function gen_media_daemon() { 
+cat <<EOF > "${MEDIA_DAEMON}" 
+#!/usr/bin/env bash 
+
+declare -r m_lnk="${M_LNK}"
+declare -r m_dir="${M_DIR:-$(pwd)}" 
+declare -r m_playlist="${M_PLAYLIST}" 
+ ## Sleep in case streams aren't being pulled, should be not shorter than your media. 
+declare -i m_sleep=${M_SLEEP} 
+while :; do 
+if [[ -f "\${m_playlist}" ]]; then  
+IFS="\$(echo -en "\n\b")" && for a in \$(< "\${m_playlist}"); do
+ song_l="\${#a}" 
+ np_song_l="\${a##*/}" 
+ (( \${#np_song_l} == \${song_l} )) && song="\${m_dir}/\${a}" || song="\${a}"
+ while :; do 
+   lsof "\${m_lnk}" 2>"${DISCARD_DEV}" | { ! grep -q "\${m_lnk##*/}"; } && { rm -f "\${m_lnk}"; 
+   cp "\${song}" "\${m_lnk}"; sleep \${m_sleep}; break; }; 
+ done   
+done  
+else 
+ sleep \${m_sleep} 
+fi
+done 
+EOF
+chmod +x "${MEDIA_DAEMON}"
+}
+
 function recv() { ((${VERBOSE})) && echo "< $@" >&2; }
 
 function send() { ((${VERBOSE})) && echo "> $@" >&2; echo "$*"; }
@@ -213,15 +282,15 @@ function send() { ((${VERBOSE})) && echo "> $@" >&2; echo "$*"; }
 function add_response_header() { RESPONSE_HEADERS+=("$1: $2"); }
 
 function send_response_binary() {
-  local code="$1"
-  local file="${2}" 
-  local transfer_stats="" 
-  local tmp_stat_file="/tmp/_send_response_$$_"
-  send "HTTP/1.0 $1 ${HTTP_RESPONSE[$1]}"
-  for i in "${RESPONSE_HEADERS[@]}"; do
-     send "$i"
-  done
-  send
+ local code="${1}"
+ local file="${2}" 
+ local transfer_stats="" 
+ local tmp_stat_file="/tmp/_send_response_$$_"
+ send "HTTP/1.0 $1 ${HTTP_RESPONSE[$1]}"
+ for i in "${RESPONSE_HEADERS[@]}"; do
+    send "$i"
+ done
+ send
  if ((${VERBOSE})); then 
    ## Use dd since it handles null bytes
   dd 2>"${tmp_stat_file}" < "${file}" 
@@ -292,14 +361,14 @@ function serve_dir_with_tree() {
 }
 
 function serve_dir_with_ls() {
-  local dir="$1"
+  local dir="${1}"
   add_response_header "Content-Type" "text/plain"
   send_response_ok_exit < \
      <(ls -la "${dir}")
 }
 
 function serve_dir() {
-  local dir="$1"
+  local dir="${1}"
    # If `tree` is installed, use that for pretty output.
   which tree &>"${DISCARD_DEV}" && \
      serve_dir_with_tree "$@"
@@ -341,33 +410,64 @@ function on_uri_match() {
 
 function unconditionally() { "$@" "$REQUEST_URI"; }
 
-function main() { 
-  local recv="" 
-  local line="" 
-  local REQUEST_METHOD=""
-  local REQUEST_HTTP_VERSION="" 
-  chk_conf_file
-  [[ ${UID} = 0 ]] && warn "It is not recommended to run bashttpd as root."
-   # Request-Line HTTP RFC 2616 $5.1
-  read -r line || fail_with 400
-  line=${line%%$'\r'}
-  recv "${line}"
-  read -r REQUEST_METHOD REQUEST_URI REQUEST_HTTP_VERSION <<< "${line}"
-  [ -n "${REQUEST_METHOD}" ] && [ -n "${REQUEST_URI}" ] && \
-   [ -n "${REQUEST_HTTP_VERSION}" ] || fail_with 400
-   # Only GET is supported at this time
-  [ "${REQUEST_METHOD}" = "GET" ] || fail_with 405
-  while IFS= read -r line; do
-    line=${line%%$'\r'}
-    recv "${line}"
-      # If we've reached the end of the headers, break.
-    [ -z "${line}" ] && break
-    REQUEST_HEADERS+=("${line}")
-  done
+function gen_playlist_aliases() { 
+ [[ -f "${M_ALIASES}" ]] && rm -f "${M_ALIASES}" 
+ echo "alias add2mpl='_() { song_l=\"\${#1}\"; np_song_l=\"\${1##*/}\"; [[ ! \${#np_song_l} -lt \${song_l} ]] && song=\"\$(pwd)/\${1}\" || song=\"\${1}\"; echo \"\${song}\" >> \"${M_PLAYLIST}\"; }; _'" >> "${M_ALIASES}" 
+ echo "alias rmmpl='rm \"${M_PLAYLIST}\"'" >> "${M_ALIASES}"
+ echo "alias 102mpl='_() { IFS=\$(echo -en \"\n\b\") && for a in \$(ls -f1 *\"\${1}\" | shuf | tail -10); do add2mpl \"\${a}\"; done; }; _'" >> "${M_ALIASES}"
+ echo "alias rempl='rmmpl; 102mpl'" >> "${M_ALIASES}"
+ echo "echo -e \"\\nThe following aliases allow for tracks to be added and removed from the playlist: \\n\"" >> "${M_ALIASES}"
+ echo "echo \"     alias add2mpl: Adds a new media track to the current playlist\""  >> "${M_ALIASES}"
+ echo "echo \"       alias rmmpl: Deletes the current playlist\""  >> "${M_ALIASES}"
+ echo "echo -e \"       alias rempl: Recreates the current playlist with 10 random tracks, you may provide \\n                    an optional filter arg.\""  >> "${M_ALIASES}"
+ echo "echo -e \"      alias 102mpl: Adds 10 random tracks from the current directory to the current playlist.\""  >> "${M_ALIASES}"
+ echo "echo \"      Optionally you may provide a filter argument (mp4,avi,mp3  etc), e.g. $ 102mpl mp3  -- adds \""  >> "${M_ALIASES}"
+ echo "echo -e \"      10 random mp3 tracks from the current directory to the current playlist.\\n\""  >> "${M_ALIASES}"
+ chmod +x "${M_ALIASES}"
+}  
+ 
+function start_media_daemon() { 
+ [[ ! -f "${MEDIA_DAEMON}" ]] && gen_media_daemon && echo "Created media daemon config file.."  
+ [[ ! -f "${MEDIA_DAEMON}" ]] && echo "Error: No media daemon script found, wanted: $MEDIA_DAEMON" && exit 0 
+ gen_playlist_aliases
+ echo "Starting media daemon.."
+ echo "You can add media to the playlist with the following aliases .."
+ "${M_ALIASES}"
+ echo "You can source the aliases file from other terminals with: \$ source \"${M_ALIASES}\" "
+ echo "Starting media daemon.."  && "${MEDIA_DAEMON}" &  
+ echo "$!" >> "${M_PID}_$$" 
 } 
 
-if [[ ! -z "{$1}" ]] && [ "${1}" = "-s" ]; then 
+function main() { 
+ local recv="" 
+ local line="" 
+ local REQUEST_METHOD=""
+ local REQUEST_HTTP_VERSION="" 
+ chk_conf_file
+ [[ ${UID} = 0 ]] && warn "It is not recommended to run bashttpd as root."
+  # Request-Line HTTP RFC 2616 $5.1
+ read -r line || fail_with 400
+ line=${line%%$'\r'}
+ recv "${line}"
+ read -r REQUEST_METHOD REQUEST_URI REQUEST_HTTP_VERSION <<< "${line}"
+ [ -n "${REQUEST_METHOD}" ] && [ -n "${REQUEST_URI}" ] && \
+  [ -n "${REQUEST_HTTP_VERSION}" ] || fail_with 400
+  # Only GET is supported at this time
+ [ "${REQUEST_METHOD}" = "GET" ] || fail_with 405
+ while IFS= read -r line; do
+   line=${line%%$'\r'}
+   recv "${line}"
+     # If we've reached the end of the headers, break.
+   [ -z "${line}" ] && break
+   REQUEST_HEADERS+=("${line}")
+ done
+} 
+
+[[ ! -z "${2}" ]]  && [[ "${2}" = "-m" ]] && start_media_daemon
+
+if [[ ! -z "${1}" ]] && [ "${1}" = "-s" ]; then 
  socat TCP4-LISTEN:${LISTEN_PORT},fork EXEC:"${0}" 
+ M_SEM=0 
 else 
  main 
  source "${BASHTTPD_CONF}" 
