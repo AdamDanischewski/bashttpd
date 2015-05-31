@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-###                          bashttpd v 1.19
+###                          bashttpd v 1.20
 ###
 ### Original author: Avleen Vig,       2012
 ### Reworked by:     Josh Cartwright,  2012
@@ -272,8 +272,8 @@ if lsof "\${m_lnk}" 2>"${DISCARD_DEV}" | { grep -q "\${m_lnk##*/}"; } || [[ ! -f
   np_song_l="\${song##*/}" 
   (( \${#np_song_l} == \${song_l} )) && song="\${m_dir}/\${song}" 
   while :; do 
-   lsof "\${m_lnk}" 2>"${DISCARD_DEV}" | { ! grep -q "\${m_lnk##*/}"; } && { rm -f "\${m_lnk}"; 
-   cp "\${song}" "\${m_lnk}"; break; } || sleep 1; 
+   lsof "\${m_lnk}" 2>"${DISCARD_DEV}" | { ! grep -q "\${m_lnk##*/}"; } && 
+   [[ -f "\${song}" ]] && { rm -f "\${m_lnk}"; cp "\${song}" "\${m_lnk}"; break; } || sleep 1; 
   done   
   m_track+=1
  else 
