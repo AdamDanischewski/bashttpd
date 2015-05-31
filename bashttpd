@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-###                          bashttpd v 1.17
+###                          bashttpd v 1.19
 ###
 ### Original author: Avleen Vig,       2012
 ### Reworked by:     Josh Cartwright,  2012
@@ -107,7 +107,7 @@ declare -r M_LNK="/tmp/lnk.mp4"  ## The mp4 extension works in vlc for both mp3/
 declare -r M_DIR=""               ## Default dir for media in playlist 
                                   ## w/out abs paths (defaults to pwd).   
 declare -r M_PLAYLIST="/tmp/_mpl.txt" 
-declare -i M_SLEEP=120 
+declare -i M_SLEEP=30  ### How long to wait to check if tracks are being played/pulled.  
 declare -r M_PID="/tmp/_mpl_pid_" 
 
 function exit_gracefully() { 
@@ -261,20 +261,27 @@ declare -r m_dir="${M_DIR:-$(pwd)}"
 declare -r m_playlist="${M_PLAYLIST}" 
  ## Sleep in case streams aren't being pulled, should be shorter than your shortest media. 
 declare -i m_sleep=${M_SLEEP} 
-while :; do 
-if [[ -f "\${m_playlist}" ]]; then  
-IFS="\$(echo -en "\n\b")" && for a in \$(< "\${m_playlist}"); do
- song_l="\${#a}" 
- np_song_l="\${a##*/}" 
- (( \${#np_song_l} == \${song_l} )) && song="\${m_dir}/\${a}" || song="\${a}"
- while :; do 
+declare -i m_count=0  ## Total playlist entries. 
+declare -i m_track=1  ## Current track selection. 
+while :; do  
+if lsof "\${m_lnk}" 2>"${DISCARD_DEV}" | { grep -q "\${m_lnk##*/}"; } || [[ ! -f "\${m_lnk}" ]]; then  
+ if [[ -f "\${m_playlist}" ]] && m_count=\$(wc -l <"\${m_playlist}") && ((\${m_count} > 0));  then   
+  ((\${m_track}>\${m_count})) && m_track=1       ## Reset to first track if track selection is over.  
+  song=\$(sed -n \${m_track}p "\${m_playlist}")  ## Very minor race condition. 
+  song_l="\${#song}" 
+  np_song_l="\${song##*/}" 
+  (( \${#np_song_l} == \${song_l} )) && song="\${m_dir}/\${song}" 
+  while :; do 
    lsof "\${m_lnk}" 2>"${DISCARD_DEV}" | { ! grep -q "\${m_lnk##*/}"; } && { rm -f "\${m_lnk}"; 
-   cp "\${song}" "\${m_lnk}"; sleep \${m_sleep}; break; }; 
- done   
-done  
+   cp "\${song}" "\${m_lnk}"; break; } || sleep 1; 
+  done   
+  m_track+=1
+ else 
+  sleep \${m_sleep} ## No playlist. 
+ fi
 else 
- sleep \${m_sleep} 
-fi
+ sleep \${m_sleep}  ## No stream being pulled. 
+fi 
 done 
 EOF
 chmod +x "${MEDIA_DAEMON}"
@@ -437,6 +444,7 @@ function start_media_daemon() {
  [[ ! -f "${MEDIA_DAEMON}" ]] && gen_media_daemon && echo "Created media daemon config file.."  
  [[ ! -f "${MEDIA_DAEMON}" ]] && echo "Error: No media daemon script found, wanted: $MEDIA_DAEMON" && exit 0 
  gen_playlist_aliases
+ rm -f "${M_LNK}"
  echo "Starting media daemon.."
  echo "You can add media to the playlist with the following aliases .."
  "${M_ALIASES}"
@@ -473,7 +481,7 @@ function main() {
 [[ ! -z "${2}" ]]  && [[ "${2}" = "-m" ]] && start_media_daemon
 
 if [[ ! -z "${1}" ]] && [ "${1}" = "-s" ]; then 
- socat TCP4-LISTEN:${LISTEN_PORT},fork EXEC:"${0}" 
+ socat TCP4-LISTEN:${LISTEN_PORT},fork EXEC:"${0}"  2>"${DISCARD_DEV}" 
  M_SEM=0 
 else 
  main 
