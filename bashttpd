@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-###                          bashttpd v 1.20
+###                          bashttpd v 1.21
 ###
 ### Original author: Avleen Vig,       2012
 ### Reworked by:     Josh Cartwright,  2012
@@ -280,7 +280,7 @@ if lsof "\${m_lnk}" 2>"${DISCARD_DEV}" | { grep -q "\${m_lnk##*/}"; } || [[ ! -f
   sleep \${m_sleep} ## No playlist. 
  fi
 else 
- sleep \${m_sleep}  ## No stream being pulled. 
+ sleep 2 ## No stream being pulled. 
 fi 
 done 
 EOF
