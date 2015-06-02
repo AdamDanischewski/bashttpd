@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-###                          bashttpd v 1.21
+###                          bashttpd v 1.22
 ###
 ### Original author: Avleen Vig,       2012
 ### Reworked by:     Josh Cartwright,  2012
@@ -431,12 +431,14 @@ function gen_playlist_aliases() {
  echo "alias rempl='rmmpl; 102mpl'" >> "${M_ALIASES}"
  echo "echo -e \"\\nThe following aliases allow for tracks to be added and removed from the playlist: \\n\"" >> "${M_ALIASES}"
  echo "echo \"     alias add2mpl: Adds a new media track to the current playlist\""  >> "${M_ALIASES}"
- echo "echo \"       alias rmmpl: Deletes the current playlist\""  >> "${M_ALIASES}"
- echo "echo \"       alias lsmpl: Lists the current playlist\""  >> "${M_ALIASES}"
- echo "echo -e \"       alias rempl: Recreates the current playlist with 10 random tracks, you may provide \\n                    an optional filter arg.\""  >> "${M_ALIASES}"
- echo "echo -e \"      alias 102mpl: Adds 10 random tracks from the current directory to the current playlist.\""  >> "${M_ALIASES}"
- echo "echo \"      Optionally you may provide a filter argument (mp4,avi,mp3  etc), e.g. $ 102mpl mp3  -- adds \""  >> "${M_ALIASES}"
- echo "echo -e \"      10 random mp3 tracks from the current directory to the current playlist.\\n\""  >> "${M_ALIASES}"
+ echo "echo \"     alias   rmmpl: Deletes the current playlist\""  >> "${M_ALIASES}"
+ echo "echo \"     alias   lsmpl: Lists the current playlist\""  >> "${M_ALIASES}"
+ echo "echo -e \"     alias   rempl: Recreates the current playlist with 10 random tracks, you may provide \\n                    an optional filter arg.\""  >> "${M_ALIASES}"
+ echo "echo -e \"     alias  102mpl: Adds 10 random tracks from the current directory to the current playlist.\""  >> "${M_ALIASES}"
+ echo "echo -e \"      Optionally you may provide a filter argument (mp4,avi,mp3  etc), to add 10 random \\n      mp3 tracks from current dir to the current playlist: e.g. $> 102mpl mp3 \\n\""  >> "${M_ALIASES}"
+ echo "echo -e \"Now just add some tracks and you're ready to start vlc on a remote machine: \\n e.g. \\\$> vlc \\\"http://192.168.1.101:8080/tmp/lnk.mp4\\\"\""  >> "${M_ALIASES}"
+ echo "echo \"Put vlc on single song loop, all playlist tracks should play through looping the entire playlist.\""  >> "${M_ALIASES}"
+ echo "echo -e \"Hint: To skip a song, hit stop on vlc after at least 2 seconds then play.\\n\""  >> "${M_ALIASES}"
  chmod +x "${M_ALIASES}"
 }  
  
@@ -445,10 +447,9 @@ function start_media_daemon() {
  [[ ! -f "${MEDIA_DAEMON}" ]] && echo "Error: No media daemon script found, wanted: $MEDIA_DAEMON" && exit 0 
  gen_playlist_aliases
  rm -f "${M_LNK}"
- echo "Starting media daemon.."
  echo "You can add media to the playlist with the following aliases .."
  "${M_ALIASES}"
- echo "You can source the aliases file from other terminals with: \$ source \"${M_ALIASES}\" "
+ echo "You can source the aliases file from other terminals with: \$> source \"${M_ALIASES}\" "
  echo "Starting media daemon.."  && "${MEDIA_DAEMON}" &  
  echo "$!" >> "${M_PID}_$$" 
 } 
