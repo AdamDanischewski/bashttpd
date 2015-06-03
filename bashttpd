@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-###                          bashttpd v 1.22
+###                          bashttpd v 1.23
 ###
 ### Original author: Avleen Vig,       2012
 ### Reworked by:     Josh Cartwright,  2012
@@ -272,6 +272,8 @@ if lsof "\${m_lnk}" 2>"${DISCARD_DEV}" | { grep -q "\${m_lnk##*/}"; } || [[ ! -f
   np_song_l="\${song##*/}" 
   (( \${#np_song_l} == \${song_l} )) && song="\${m_dir}/\${song}" 
   while :; do 
+     ## Hack idea: echo the to be cp'd song name to a tmp file, store it in a global and add a new alias 
+     ## to display the current playing track listing. Make it yours! =)     
    lsof "\${m_lnk}" 2>"${DISCARD_DEV}" | { ! grep -q "\${m_lnk##*/}"; } && 
    [[ -f "\${song}" ]] && { rm -f "\${m_lnk}"; cp "\${song}" "\${m_lnk}"; break; } || sleep 1; 
   done   
