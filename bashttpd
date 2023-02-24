@@ -6,7 +6,7 @@
 ###
 ### Original author: Avleen Vig,       2012
 ### Reworked by:     Josh Cartwright,  2012
-### Modified by:     A.M.Danischewski, 2015 
+### Modified by:     A.M.Danischewski, 2023 
 ### Issues: If you find any issues leave me a comment at 
 ### http://scriptsandoneliners.blogspot.com/2015/04/bashttpd-self-contained-bash-webserver.html 
 ### 
@@ -370,6 +370,7 @@ function serve_dir_with_tree() {
   read _ tree_vers x < <(tree --version)
   tree_page=$(tree -H "$base_server_path" -L 1 "${tree_opts}" -D "${dir}")
   tree_page=$(sed "5 i ${no_favicon}" <<< "${tree_page}")  
+  tree_page=$(sed '6 i <meta http-equiv="Content-Language" content="en">' <<< "${tree_page}")
   [[ "${tree_vers}" == v1.6* ]] 
   send_response_ok_exit <<< "${tree_page}"  
 }
